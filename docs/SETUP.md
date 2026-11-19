@@ -44,7 +44,33 @@ Open the local address printed by Streamlit, normally <http://localhost:8501>. S
 
 The app starts in **Offline** mode by default. This prevents unexpected network access, but the embedding model is a separate download from the Python packages. If it is missing, the app now opens and shows a warning so you can fix the model from Settings.
 
-For Persian and multilingual documents, download this supported model once while the computer has internet access:
+### English documents: default model
+
+The default model, `sentence-transformers/all-MiniLM-L6-v2`, is smaller (about 90 MB) and suitable for English documents. Download it to the app's standard folder before launching offline if it is not already cached.
+
+Windows PowerShell:
+
+```powershell
+$env:HF_HUB_DISABLE_XET = "1"
+$env:HF_HUB_DOWNLOAD_TIMEOUT = "120"
+$env:HF_HUB_ETAG_TIMEOUT = "120"
+uv run hf download sentence-transformers/all-MiniLM-L6-v2 config.json config_sentence_transformers.json model.safetensors modules.json sentence_bert_config.json special_tokens_map.json tokenizer.json tokenizer_config.json vocab.txt 1_Pooling/config.json --local-dir "$env:USERPROFILE\.local_rag_app\models\embeddings\all-MiniLM-L6-v2" --max-workers 4
+```
+
+Linux:
+
+```sh
+export HF_HUB_DISABLE_XET=1
+export HF_HUB_DOWNLOAD_TIMEOUT=120
+export HF_HUB_ETAG_TIMEOUT=120
+uv run hf download sentence-transformers/all-MiniLM-L6-v2 config.json config_sentence_transformers.json model.safetensors modules.json sentence_bert_config.json special_tokens_map.json tokenizer.json tokenizer_config.json vocab.txt 1_Pooling/config.json --local-dir "$HOME/.local_rag_app/models/embeddings/all-MiniLM-L6-v2" --max-workers 4
+```
+
+The app already selects this model by default. It also works from the normal Hugging Face cache when fully present.
+
+### Persian and multilingual documents
+
+For Persian and multilingual documents, use `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` instead. Download it once while the computer has internet access:
 
 The model weights are about 450 MB. The commands below fetch only the Safetensors weights and tokenizer/config files needed by the app, not the repository's alternative ONNX/OpenVINO copies.
 
