@@ -40,6 +40,28 @@ Open the local address printed by Streamlit, normally <http://localhost:8501>. S
 
 `uv sync --locked` creates `.venv` and installs exact versions from `uv.lock`. Run it again after pulling a change to the lock file. Do not copy `.venv` between computers or operating systems; clone the repository and create a fresh environment on each system.
 
+## GPU and CPU selection
+
+The sidebar's **AI compute mode** defaults to **Auto**. It prefers a GPU supported by the installed PyTorch build and falls back to CPU when no device is available. Choose **GPU** or **CPU** to override the preference; the sidebar shows the active device. Switching modes reloads the embedding model and any loaded local GGUF model. OpenAI-compatible remote models run on their configured server.
+
+The default install works on both Windows and Linux using CPU PyTorch:
+
+```sh
+uv sync --locked
+```
+
+For NVIDIA CUDA on supported Windows or Linux systems, install the optional CUDA build instead:
+
+```sh
+uv sync --locked --extra cuda
+```
+
+This installs the CUDA-enabled PyTorch wheels from the official PyTorch package index. The NVIDIA driver must support that PyTorch CUDA build. Verify detection with `uv run python -c "import torch; print(torch.__version__, torch.cuda.is_available())"`; the second value should be `True`. Restart the app after changing dependencies. See the [PyTorch installation selector](https://pytorch.org/get-started/locally/) and [uv's PyTorch guide](https://docs.astral.sh/uv/guides/integration/pytorch/) for supported platform and driver details.
+
+Apple Silicon may use PyTorch's MPS backend when available. Other GPU vendors/backends depend on the PyTorch build and installed drivers.
+
+Local GGUF GPU inference also requires a GPU-enabled `llama-cpp-python` build. When available, Auto and GPU mode offload all layers by default (or use the configured GPU layer count); if the backend cannot offload, the app reports CPU fallback. See the [llama.cpp Python build instructions](https://github.com/abetlen/llama-cpp-python#installation-with-openblas--cublas--hipblas--clblast--metal).
+
 ## Install the embedding model
 
 The app starts in **Offline** mode by default. This prevents unexpected network access, but the embedding model is a separate download from the Python packages. If it is missing, the app now opens and shows a warning so you can fix the model from Settings.

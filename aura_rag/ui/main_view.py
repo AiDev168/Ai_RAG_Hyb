@@ -109,6 +109,50 @@ def main():
         st.caption(("🔒 " + t("offline_badge")) if is_offline_mode() else ("🌐 " + t("online_badge")))
 
         lang_options = {"en": "🇬🇧 English", "fa": "🇮🇷 فارسی"}
+        compute_modes = {
+            "auto": "⚡ Auto (prefer GPU) / خودکار (اولویت GPU)",
+            "gpu": "🚀 GPU",
+            "cpu": "🖥️ CPU",
+        }
+        saved_compute_mode = app.config.config.get("embedding_compute_mode", "auto")
+        compute_mode = st.selectbox(
+            "AI compute mode / حالت پردازش",
+            options=list(compute_modes),
+            format_func=lambda value: compute_modes[value],
+            index=list(compute_modes).index(saved_compute_mode)
+            if saved_compute_mode in compute_modes else 0,
+            key="embedding_compute_mode_selector",
+            help=(
+                "Auto prefers an available GPU and falls back to CPU. This applies to embeddings "
+                "and local GGUF models."
+            ),
+        )
+        if compute_mode != saved_compute_mode:
+            app.config.config["embedding_compute_mode"] = compute_mode
+            app.config.save_config()
+            with st.spinner("Switching compute device and reloading the embedding model..."):
+                embeddings_ready = app.vector_manager._initialize_embeddings()
+                if embeddings_ready:
+                    app.vector_manager.load_vectorstore()
+                if app.llm_manager.llm is not None and app.llm_manager._gguf_enabled():
+                    app.llm_manager.llm = None
+                    app.llm_manager.initialize_gguf()
+                    st.session_state.llm_loaded = app.llm_manager.llm is not None
+            if not embeddings_ready:
+                st.error(app.vector_manager.embedding_error or "The embedding model could not be loaded.")
+        if app.vector_manager.active_device == "cpu":
+            st.markdown("**🖥️ CPU active**")
+        else:
+            st.markdown(f"**⚡ GPU active · {app.vector_manager.active_device_name}**")
+        if app.vector_manager.compute_warning:
+            st.warning(app.vector_manager.compute_warning)
+        elif compute_mode == "auto" and app.vector_manager.active_device == "cpu":
+            st.caption("No GPU is available to PyTorch; using CPU.")
+        if app.llm_manager.llm is not None:
+            st.caption(f"Local GGUF: {app.llm_manager.llm_compute_device}")
+            if app.llm_manager.llm_compute_warning:
+                st.warning(app.llm_manager.llm_compute_warning)
+
         selected_lang = st.selectbox(
             t("language_label"),
             options=list(lang_options.keys()),

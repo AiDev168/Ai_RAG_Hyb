@@ -38,6 +38,7 @@ def _default_config_values(models_dir: Path) -> dict:
         "chunk_size": 1000,
         "chunk_overlap": 200,
         "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+        "embedding_compute_mode": "auto",
         "llm_model_path": str(models_dir / "llama-2-7b-chat.Q4_K_M.gguf"),
         "llm_context_length": 4096,
         "llm_max_tokens": 512,

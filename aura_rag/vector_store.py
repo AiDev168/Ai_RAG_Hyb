@@ -4,6 +4,7 @@ import logging
 import shutil
 from typing import List, Optional
 
+from .compute import available_gpu
 from .config import Config, resolve_local_model
 from .dependencies import Chroma, HuggingFaceEmbeddings
 from .network import is_offline_mode
@@ -12,51 +13,82 @@ logger = logging.getLogger(__name__)
 
 
 class VectorStoreManager:
-    """Manages the vector store operations"""
+    """Manages the vector store operations."""
 
     def __init__(self, config: Config):
         self.config = config
         self.embeddings = None
         self.vectorstore = None
         self.embedding_error = None
+        self.compute_warning = None
+        self.active_device = "cpu"
+        self.active_device_name = "CPU"
         self._initialize_embeddings()
 
     def _initialize_embeddings(self, model_name: str = None):
         if HuggingFaceEmbeddings is None:
             self.embeddings = None
-            self.embedding_error = (
-                "langchain-huggingface is not installed. "
-                "Run: uv sync --locked"
-            )
+            self.embedding_error = "langchain-huggingface is not installed. Run: uv sync --locked"
             logger.error(self.embedding_error)
             return False
+
         name = model_name or self.config.config["embedding_model"]
         resolved = resolve_local_model(name, self.config.models_dir, "embeddings")
         self.embeddings = None
         self.vectorstore = None
-        try:
-            self.embeddings = HuggingFaceEmbeddings(
-                model_name=resolved,
-                model_kwargs={"device": "cpu"},
-                encode_kwargs={"normalize_embeddings": True},
-            )
-            self.embedding_error = None
-            logger.info(f"Embeddings initialized successfully ({resolved})")
-            return True
-        except Exception as e:
-            logger.error(f"Error initializing embeddings: {e}")
-            if is_offline_mode():
-                self.embedding_error = (
-                    f"Embedding model '{name}' was not found locally, and offline mode does not "
-                    f"allow downloading it. Copy the model folder into "
-                    f"{self.config.models_dir / 'embeddings'} (e.g. as '{name.split('/')[-1]}'), "
-                    f"set a local folder path in Settings → Embeddings & Chunking, or switch to "
-                    f"Online mode in the sidebar to let it download. "
-                    f"Original error: {type(e).__name__}: {e}"
+        self.compute_warning = None
+
+        mode = self.config.config.get("embedding_compute_mode", "auto")
+        gpu = available_gpu() if mode != "cpu" else None
+        if gpu:
+            target_device, target_name = gpu
+        else:
+            target_device, target_name = "cpu", "CPU"
+            if mode == "gpu":
+                self.compute_warning = (
+                    "GPU mode was selected, but PyTorch cannot access a supported GPU. "
+                    "For NVIDIA CUDA, install the GPU build with `uv sync --locked --extra cuda`, "
+                    "then restart the app. Using CPU for now."
                 )
-            else:
-                self.embedding_error = f"Could not load embedding model '{name}': {type(e).__name__}: {e}"
-            return False
+
+        devices_to_try = [(target_device, target_name)]
+        if target_device != "cpu":
+            devices_to_try.append(("cpu", "CPU"))
+
+        last_error = None
+        for device, device_name in devices_to_try:
+            try:
+                self.embeddings = HuggingFaceEmbeddings(
+                    model_name=resolved,
+                    model_kwargs={"device": device},
+                    encode_kwargs={"normalize_embeddings": True},
+                )
+                self.active_device = device
+                self.active_device_name = device_name
+                self.embedding_error = None
+                if device == "cpu" and target_device != "cpu":
+                    self.compute_warning = (
+                        f"GPU model initialization failed ({type(last_error).__name__}: {last_error}); "
+                        "embeddings are running on CPU."
+                    )
+                logger.info("Embeddings initialized successfully (%s) on %s", resolved, device_name)
+                return True
+            except Exception as exc:
+                last_error = exc
+                logger.error("Error initializing embeddings on %s: %s", device_name, exc)
+
+        self.active_device = "cpu"
+        self.active_device_name = "CPU"
+        if is_offline_mode():
+            self.embedding_error = (
+                f"Embedding model '{name}' is unavailable locally while Offline mode is active. "
+                f"Copy the complete model folder into {self.config.models_dir / 'embeddings'}, "
+                "choose a local model in Settings, or switch to Online mode to download it. "
+                f"Original error: {type(last_error).__name__}: {last_error}"
+            )
+        else:
+            self.embedding_error = f"Could not load embedding model '{name}': {type(last_error).__name__}: {last_error}"
+        return False
 
     def create_or_update_vectorstore(self, documents, progress_callback=None):
         if self.embeddings is None:
@@ -73,14 +105,13 @@ class VectorStoreManager:
                     persist_directory=str(self.config.db_dir),
                     collection_name="documents",
                 )
-                logger.info(f"Created new vector store with {len(documents)} documents")
+                logger.info("Created new vector store with %s documents", len(documents))
             else:
                 self.vectorstore.add_documents(documents)
-                logger.info(f"Added {len(documents)} documents to existing vector store")
-
+                logger.info("Added %s documents to existing vector store", len(documents))
             return True
-        except Exception as e:
-            logger.error(f"Error creating/updating vector store: {e}")
+        except Exception:
+            logger.exception("Error creating/updating vector store")
             return False
 
     def load_vectorstore(self):
@@ -97,22 +128,19 @@ class VectorStoreManager:
                     collection_name="documents",
                 )
                 count = self.vectorstore._collection.count()
-                logger.info(f"Loaded vector store with {count} documents")
+                logger.info("Loaded vector store with %s documents", count)
                 return True
-        except Exception as e:
-            logger.error(f"Error loading vector store: {e}")
+        except Exception:
+            logger.exception("Error loading vector store")
         return False
 
     def get_retriever(self, k=5, file_names: Optional[List[str]] = None):
-        """Vector retriever. If file_names is given, only chunks whose
-        'file_name' metadata is in that list are searched."""
+        """Return a vector retriever, optionally restricted to filenames."""
         if self.vectorstore:
             search_kwargs = {"k": k}
             if file_names:
                 search_kwargs["filter"] = {"file_name": {"$in": list(file_names)}}
-            return self.vectorstore.as_retriever(
-                search_type="similarity", search_kwargs=search_kwargs
-            )
+            return self.vectorstore.as_retriever(search_type="similarity", search_kwargs=search_kwargs)
         return None
 
     def delete_documents_by_filename(self, file_name: str) -> bool:
@@ -121,8 +149,8 @@ class VectorStoreManager:
         try:
             self.vectorstore._collection.delete(where={"file_name": file_name})
             return True
-        except Exception as e:
-            logger.error(f"Error deleting chunks for {file_name}: {e}")
+        except Exception:
+            logger.exception("Error deleting chunks for %s", file_name)
             return False
 
     def clear_vectorstore(self):
@@ -134,8 +162,8 @@ class VectorStoreManager:
                 self.config.db_dir.mkdir(exist_ok=True)
             self.vectorstore = None
             return True
-        except Exception as e:
-            logger.error(f"Error clearing vector store: {e}")
+        except Exception:
+            logger.exception("Error clearing vector store")
             return False
 
     def get_document_count(self):

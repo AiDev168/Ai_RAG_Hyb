@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .config import Config
 from .constants import LLM_BACKEND_MODES, NO_ANSWER_MESSAGES
+from .compute import available_gpu, llama_gpu_offload_available
 from .dependencies import (
     CallbackManager,
     LlamaCpp,
@@ -35,6 +36,8 @@ class LLMManager:
         self.llm = None              # GGUF / LlamaCpp instance
         self.openai_client = None    # OpenAI client instance
         self.last_backend_used = None
+        self.llm_compute_device = "CPU"
+        self.llm_compute_warning = None
         self.api_verified = None     # None = not tested, True/False = last test result
         self.api_verify_error = ""
 
@@ -174,14 +177,24 @@ class LLMManager:
             logger.warning(f"Model not found at {model_path}")
             return False
 
-        try:
-            callback_manager = CallbackManager([StreamingStdOutCallbackHandler()])
+        mode = self.config.config.get("embedding_compute_mode", "auto")
+        gpu = available_gpu() if mode in ("auto", "gpu") else None
+        configured_layers = int(self.config.config.get("llm_gpu_layers", 0))
+        gpu_layers = (configured_layers or -1) if gpu else 0
+        self.llm_compute_warning = None
+        if mode == "gpu" and gpu is None:
+            self.llm_compute_warning = "GPU mode requested, but no usable GPU was detected; GGUF will use CPU."
+        if gpu and llama_gpu_offload_available() is False:
+            gpu_layers = 0
+            self.llm_compute_warning = "The installed llama.cpp build has no GPU offload backend; GGUF will use CPU."
 
-            self.llm = LlamaCpp(
+        def load_model(n_gpu_layers):
+            callback_manager = CallbackManager([StreamingStdOutCallbackHandler()])
+            return LlamaCpp(
                 model_path=model_path,
                 n_ctx=self.config.config["llm_context_length"],
                 n_threads=os.cpu_count() or 4,
-                n_gpu_layers=self.config.config["llm_gpu_layers"],
+                n_gpu_layers=n_gpu_layers,
                 n_batch=512,
                 max_tokens=self.config.config["llm_max_tokens"],
                 temperature=self.config.config["llm_temperature"],
@@ -197,10 +210,22 @@ class LLMManager:
                 streaming=True,
                 verbose=False,
             )
+        try:
+            self.llm = load_model(gpu_layers)
+            self.llm_compute_device = f"GPU · {gpu[1]}" if gpu and gpu_layers else "CPU"
             logger.info("LLM initialized successfully")
             return True
         except Exception as e:
+            if gpu_layers:
+                try:
+                    self.llm = load_model(0)
+                    self.llm_compute_device = "CPU"
+                    self.llm_compute_warning = f"GPU loading failed; GGUF fell back to CPU ({e})."
+                    return True
+                except Exception as fallback_error:
+                    e = fallback_error
             logger.error(f"Error initializing LLM: {e}")
+            self.llm = None
             return False
 
     def initialize_openai(self) -> bool:
