@@ -1,0 +1,23 @@
+__pycache__/
+storage/artifacts/
+storage/cache/
+venv/
+.env
+
+# Runtime-generated platform state and secrets
+storage/*.db*
+storage/*.key
+storage/*credentials*.txt
+storage/settings/
+
+docling_models/
+storage/document_knowledge/
+storage/huggingface/
+
+storage/bot_builder/
+
+storage/persian_tts/
+
+/kernel-Intel(R)_UHD_Graphics.bin
+/kernel-NVIDIA_GeForce_RTX_4070_Laptop_GPU.bin
+/tesseract_opencl_profile_devices.dat

@@ -1,0 +1,19 @@
+streamlit
+pandas
+psutil
+langchain-core
+langchain-community
+langchain-classic
+langchain-text-splitters
+langchain-huggingface
+langchain-chroma
+sentence-transformers
+rank_bm25
+llama-cpp-python
+pypdf
+docx2txt
+pymupdf
+pytesseract
+pillow
+openai
+# optional file types: unstructured[xlsx,pptx,md,html,epub,odt,rtf,email], jq
