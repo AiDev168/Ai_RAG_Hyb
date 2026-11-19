@@ -9,11 +9,11 @@ langchain-huggingface
 langchain-chroma
 sentence-transformers
 rank_bm25
-llama-cpp-python
 pypdf
 docx2txt
 pymupdf
 pytesseract
 pillow
 openai
-# optional file types: unstructured[xlsx,pptx,md,html,epub,odt,rtf,email], jq
+# Optional loaders and the native GGUF backend are listed separately in
+# requirements-office.txt and requirements-local-llm.txt.

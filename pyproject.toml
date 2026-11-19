@@ -1,0 +1,29 @@
+[project]
+name = "aura-rag"
+version = "0.1.0"
+description = "AURA RAG document question-answering application"
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "streamlit",
+    "pandas",
+    "psutil",
+    "langchain-core",
+    "langchain-community",
+    "langchain-classic",
+    "langchain-text-splitters",
+    "langchain-huggingface",
+    "langchain-chroma",
+    "sentence-transformers",
+    "rank-bm25",
+    "pypdf",
+    "docx2txt",
+    "pymupdf",
+    "pytesseract",
+    "pillow",
+    "openai",
+]
+
+[tool.uv]
+package = false
+

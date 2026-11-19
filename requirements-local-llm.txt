@@ -1,0 +1,3 @@
+# Optional native GGUF backend; install in the project's active environment.
+# Availability of prebuilt wheels varies by Python, OS, and CPU architecture.
+llama-cpp-python

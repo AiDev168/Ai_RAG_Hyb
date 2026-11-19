@@ -1,0 +1,3 @@
+# Optional loaders for additional document formats.
+unstructured[xlsx,pptx,md,html,epub,odt,rtf,email]
+jq

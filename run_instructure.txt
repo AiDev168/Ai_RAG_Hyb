@@ -1,1 +1,8 @@
-streamlit run app.py
+Run from the repository root:
+
+    uv sync --locked
+    uv run streamlit run app.py
+
+Optional local GGUF backend (may require a native C++ build toolchain):
+
+    uv pip install -r requirements-local-llm.txt

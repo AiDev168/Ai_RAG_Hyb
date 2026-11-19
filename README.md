@@ -1,6 +1,30 @@
-# AURA RAG — modular layout
+# AURA RAG
 
-Run: `pip install -r requirements.txt` then `streamlit run app.py`
+## Run locally
+
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/) and Python 3.11, then from the repository root run:
+
+```sh
+uv sync --locked
+uv run streamlit run app.py
+```
+
+The same commands work in PowerShell, Windows Command Prompt, and Linux shells. `uv sync` creates the project environment in `.venv` and installs the exact versions recorded in `uv.lock`.
+
+Optional features:
+
+```sh
+uv pip install -r requirements-office.txt  # additional Office/markup document formats
+uv pip install -r requirements-local-llm.txt  # requires the project's environment to be active
+```
+
+The application can use its other configured LLM backends without `llama-cpp-python`. Scanned document OCR also requires the Tesseract system application and language data; these are separate from Python packages.
+
+## CI
+
+GitHub Actions installs the locked dependencies on both the latest Ubuntu and Windows runners for every push and pull request. To refresh the dependency lock after editing `pyproject.toml`, run `uv lock` and commit both `pyproject.toml` and `uv.lock`.
+
+## Project layout
 
 Behaviour is identical to the single-file `aura_rag7.py`; the code was moved, not rewritten
 (one exception: `extractive_answer()` now takes `language` as an argument instead of reading

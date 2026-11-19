@@ -2,6 +2,8 @@ __pycache__/
 storage/artifacts/
 storage/cache/
 venv/
+.venv/
+.uv/
 .env
 
 # Runtime-generated platform state and secrets
