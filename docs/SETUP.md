@@ -51,12 +51,18 @@ The model weights are about 450 MB. The commands below fetch only the Safetensor
 ### Windows PowerShell
 
 ```powershell
+$env:HF_HUB_DISABLE_XET = "1"
+$env:HF_HUB_DOWNLOAD_TIMEOUT = "120"
+$env:HF_HUB_ETAG_TIMEOUT = "120"
 uv run hf download sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 config.json config_sentence_transformers.json model.safetensors modules.json sentence_bert_config.json sentencepiece.bpe.model special_tokens_map.json tokenizer.json tokenizer_config.json 1_Pooling/config.json --local-dir "$env:USERPROFILE\.local_rag_app\models\embeddings\paraphrase-multilingual-MiniLM-L12-v2" --max-workers 4
 ```
 
 ### Linux
 
 ```sh
+export HF_HUB_DISABLE_XET=1
+export HF_HUB_DOWNLOAD_TIMEOUT=120
+export HF_HUB_ETAG_TIMEOUT=120
 uv run hf download sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 config.json config_sentence_transformers.json model.safetensors modules.json sentence_bert_config.json sentencepiece.bpe.model special_tokens_map.json tokenizer.json tokenizer_config.json 1_Pooling/config.json --local-dir "$HOME/.local_rag_app/models/embeddings/paraphrase-multilingual-MiniLM-L12-v2" --max-workers 4
 ```
 
