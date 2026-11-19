@@ -200,6 +200,7 @@ def render_embeddings_tab(app: RAGApplication):
     )
 
     if st.button("💾 Save Embedding Settings", type="primary", use_container_width=True):
+        embedding_changed = embedding_model != app.config.config.get("embedding_model")
         app.config.config["embedding_model"] = embedding_model
         app.config.config["chunk_size"] = chunk_size
         app.config.config["chunk_overlap"] = chunk_overlap
@@ -210,4 +211,20 @@ def render_embeddings_tab(app: RAGApplication):
         app.config.save_config()
         # Rebuild the splitter immediately so new chunk settings actually apply.
         app.doc_processor._build_splitter()
-        st.success("Settings saved and applied to new documents.")
+        with st.spinner("Loading embedding model..."):
+            model_loaded = app.vector_manager._initialize_embeddings(embedding_model)
+        if model_loaded:
+            if not embedding_changed:
+                app.vector_manager.load_vectorstore()
+            st.success("Settings saved and embedding model loaded.")
+            if embedding_changed:
+                st.warning(
+                    "The embedding model changed. Clear the existing knowledge base and re-add its documents "
+                    "before searching, so all stored vectors use the same model."
+                )
+        else:
+            st.error(
+                "Settings were saved, but the embedding model could not be loaded. "
+                "Switch to Online mode or copy the complete model folder into the local embeddings directory. "
+                + (app.vector_manager.embedding_error or "")
+            )

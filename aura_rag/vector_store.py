@@ -18,37 +18,50 @@ class VectorStoreManager:
         self.config = config
         self.embeddings = None
         self.vectorstore = None
+        self.embedding_error = None
         self._initialize_embeddings()
 
     def _initialize_embeddings(self, model_name: str = None):
         if HuggingFaceEmbeddings is None:
-            raise RuntimeError(
+            self.embeddings = None
+            self.embedding_error = (
                 "langchain-huggingface is not installed. "
-                "Run: pip install langchain-huggingface --break-system-packages"
+                "Run: uv sync --locked"
             )
+            logger.error(self.embedding_error)
+            return False
         name = model_name or self.config.config["embedding_model"]
         resolved = resolve_local_model(name, self.config.models_dir, "embeddings")
+        self.embeddings = None
+        self.vectorstore = None
         try:
             self.embeddings = HuggingFaceEmbeddings(
                 model_name=resolved,
                 model_kwargs={"device": "cpu"},
                 encode_kwargs={"normalize_embeddings": True},
             )
+            self.embedding_error = None
             logger.info(f"Embeddings initialized successfully ({resolved})")
+            return True
         except Exception as e:
             logger.error(f"Error initializing embeddings: {e}")
             if is_offline_mode():
-                raise RuntimeError(
+                self.embedding_error = (
                     f"Embedding model '{name}' was not found locally, and offline mode does not "
                     f"allow downloading it. Copy the model folder into "
                     f"{self.config.models_dir / 'embeddings'} (e.g. as '{name.split('/')[-1]}'), "
                     f"set a local folder path in Settings → Embeddings & Chunking, or switch to "
                     f"Online mode in the sidebar to let it download. "
                     f"Original error: {type(e).__name__}: {e}"
-                ) from e
-            raise
+                )
+            else:
+                self.embedding_error = f"Could not load embedding model '{name}': {type(e).__name__}: {e}"
+            return False
 
     def create_or_update_vectorstore(self, documents, progress_callback=None):
+        if self.embeddings is None:
+            logger.error("Cannot index documents: %s", self.embedding_error or "embedding model is not loaded")
+            return False
         if Chroma is None:
             logger.error("langchain-chroma is not installed.")
             return False
@@ -71,6 +84,9 @@ class VectorStoreManager:
             return False
 
     def load_vectorstore(self):
+        if self.embeddings is None:
+            self.vectorstore = None
+            return False
         if Chroma is None:
             return False
         try:

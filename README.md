@@ -20,6 +20,8 @@ uv pip install -r requirements-local-llm.txt  # requires the project's environme
 
 The application can use its other configured LLM backends without `llama-cpp-python`. Scanned document OCR also requires the Tesseract system application and language data; these are separate from Python packages.
 
+For clean Windows/Linux setup, embedding model download, data locations, and troubleshooting, see [docs/SETUP.md](docs/SETUP.md).
+
 ## CI
 
 GitHub Actions installs the locked dependencies on both the latest Ubuntu and Windows runners for every push and pull request. To refresh the dependency lock after editing `pyproject.toml`, run `uv lock` and commit both `pyproject.toml` and `uv.lock`.

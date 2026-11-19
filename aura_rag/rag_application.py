@@ -42,6 +42,12 @@ class RAGApplication:
         self.vector_manager.load_vectorstore()
 
     def add_documents(self, uploaded_files, progress_callback=None):
+        if self.vector_manager.embeddings is None:
+            return False, (
+                "The embedding model is not ready. Download or select a local embedding model "
+                "in Settings → Embeddings & Chunking, then try again. "
+                + (self.vector_manager.embedding_error or "")
+            ), []
         saved_paths = []
 
         for uploaded_file in uploaded_files:
@@ -269,6 +275,8 @@ class RAGApplication:
         if not sents or not psents:
             return []
         emb = self.vector_manager.embeddings
+        if emb is None:
+            return []
         a = np.asarray(emb.embed_documents([_CITE_RE.sub("", s).strip() for s in sents]), dtype="float32")
         b = np.asarray(emb.embed_documents([p for _, p in psents]), dtype="float32")
         a = a / np.maximum(np.linalg.norm(a, axis=1, keepdims=True), 1e-9)

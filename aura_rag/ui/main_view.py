@@ -67,6 +67,12 @@ def main():
     show_import_errors_banner()
 
     app = st.session_state.app
+    if app.vector_manager.embeddings is None:
+        st.warning(
+            "The embedding model is not ready. Open Settings to choose a local model, or switch to Online "
+            "mode to download the configured model. "
+            + (app.vector_manager.embedding_error or "")
+        )
     ensure_conversation(app)
 
     with st.sidebar:
@@ -88,6 +94,10 @@ def main():
             apply_network_mode(chosen_net == "offline")
             app.config.config["network_mode"] = chosen_net
             app.config.save_config()
+            if app.vector_manager.embeddings is None:
+                with st.spinner("Loading the embedding model..."):
+                    if app.vector_manager._initialize_embeddings():
+                        app.vector_manager.load_vectorstore()
             # Re-evaluate the API backend under the new mode (remote endpoints
             # are only allowed online), then refresh the "LLM loaded" status.
             app.llm_manager.openai_client = None
